@@ -904,6 +904,18 @@ tests:
         requests:
           cpu: 100m
           memory: 200Mi
+- as: canary-build03
+  cluster: build03
+  interval: 10m
+  steps:
+    test:
+    - as: test
+      commands: echo "here i am, rock you like a hurricane"
+      from: golang
+      resources:
+        requests:
+          cpu: 100m
+          memory: 200Mi
 - as: security
   optional: true
   steps:
