@@ -867,6 +867,10 @@ supplementalCIImages:
     namespace: ci
     name: pod-scaler
     tag: latest
+  ci/content-mirror:latest:
+    namespace: ci
+    name: content-mirror
+    tag: latest
   openshift/fedora:31:
     namespace: openshift
     name: fedora
