@@ -3,6 +3,10 @@ base_images:
     name: "4.22"
     namespace: ocp
     tag: aws-efs-csi-operator-create-efs
+  claude-ai-helpers:
+    name: claude-ai-helpers
+    namespace: ci
+    tag: latest
   hypershift-operator:
     name: hypershift-operator
     namespace: hypershift
@@ -34,7 +38,7 @@ tests:
     env:
       BASE_DOMAIN: ocp-ci.medik8s-ci.devcluster.openshift.com
       ECO_TEST_FEATURES: far-operator
-      ECO_TEST_LABELS: '!tier:upgrade'
+      ECO_TEST_LABELS: '!tier:upgrade && !tier:interop'
       ECO_TEST_VERBOSE: "true"
       OCP_VERSION: "422"
       OO_CHANNEL: stable
@@ -42,6 +46,40 @@ tests:
     test:
     - chain: medik8s-setup
     - ref: medik8s-aws-credentials
+    - as: e2e-test
+      cli: latest
+      commands: |
+        [[ -f "${SHARED_DIR}/workload_image" ]] && export WORKLOAD_IMAGE=$(cat "${SHARED_DIR}/workload_image")
+        make run-tests
+      env:
+      - name: ECO_TEST_FEATURES
+      - name: ECO_TEST_LABELS
+      - name: ECO_TEST_VERBOSE
+      from: src
+      resources:
+        requests:
+          cpu: 100m
+          memory: 1Gi
+    workflow: ipi-aws
+- always_run: false
+  as: e2e-far-nhc-interop-aws
+  capabilities:
+  - intranet
+  optional: true
+  steps:
+    cluster_profile: medik8s-aws
+    env:
+      BASE_DOMAIN: ocp-ci.medik8s-ci.devcluster.openshift.com
+      ECO_TEST_FEATURES: far-operator
+      ECO_TEST_LABELS: operator:far && operator:nhc && tier:interop
+      ECO_TEST_VERBOSE: "true"
+      OCP_VERSION: "422"
+      OO_CHANNEL: stable
+      OPERATORS: fence-agents-remediation,node-healthcheck-operator
+    test:
+    - chain: medik8s-setup
+    - ref: medik8s-aws-credentials
+    - ref: ssh-bastion
     - as: e2e-test
       cli: latest
       commands: |
@@ -101,6 +139,10 @@ tests:
       OCP_VERSION: "422"
       OO_CHANNEL: stable
       OPERATORS: node-healthcheck-operator,self-node-remediation
+      TEST_NAME: e2e-nhc-aws
+      TEST_STEPS: e2e-test
+    post:
+    - ref: medik8s-analyze-e2e-failure
     test:
     - chain: medik8s-setup
     - ref: ssh-bastion
@@ -336,7 +378,7 @@ tests:
       ECO_ENABLE_REPORT: "true"
       ECO_TC_PREFIX: OCP-
       ECO_TEST_FEATURES: far-operator
-      ECO_TEST_LABELS: '!tier:upgrade'
+      ECO_TEST_LABELS: '!tier:upgrade && !tier:interop'
       ECO_TEST_VERBOSE: "true"
       OCP_VERSION: "422"
       OO_CHANNEL: stable
@@ -525,6 +567,10 @@ tests:
       OCP_VERSION: "422"
       OO_CHANNEL: stable
       OPERATORS: node-healthcheck-operator,self-node-remediation
+      TEST_NAME: e2e-nhc-weekly-aws
+      TEST_STEPS: e2e-test
+    post:
+    - ref: medik8s-analyze-e2e-failure
     test:
     - chain: medik8s-setup
     - ref: ssh-bastion
@@ -541,6 +587,49 @@ tests:
         requests:
           cpu: 100m
           memory: 200Mi
+    workflow: ipi-aws
+- as: e2e-far-nhc-interop-weekly-aws
+  capabilities:
+  - intranet
+  cron: 0 12 * * 5
+  steps:
+    cluster_profile: medik8s-aws
+    env:
+      BASE_DOMAIN: ocp-ci.medik8s-ci.devcluster.openshift.com
+      ECO_ENABLE_REPORT: "true"
+      ECO_TC_PREFIX: OCP-
+      ECO_TEST_FEATURES: far-operator
+      ECO_TEST_LABELS: operator:far && operator:nhc && tier:interop
+      ECO_TEST_VERBOSE: "true"
+      OCP_VERSION: "422"
+      OO_CHANNEL: stable
+      OPERATORS: fence-agents-remediation,node-healthcheck-operator
+      POLARION_TESTRUN_ID: RHWA-FAR-NHC-4.22-interop-weekly
+      REPORT_CASE_TAG: polarion-testcase-id
+    post:
+    - ref: medik8s-polarion-reporter
+    - chain: ipi-aws-post
+    test:
+    - chain: medik8s-setup
+    - ref: medik8s-aws-credentials
+    - ref: ssh-bastion
+    - as: e2e-test
+      cli: latest
+      commands: |
+        [[ -f "${SHARED_DIR}/workload_image" ]] && export WORKLOAD_IMAGE=$(cat "${SHARED_DIR}/workload_image")
+        make run-tests
+      env:
+      - name: ECO_ENABLE_REPORT
+      - name: ECO_TC_PREFIX
+      - name: ECO_TEST_FEATURES
+      - name: ECO_TEST_LABELS
+      - name: ECO_TEST_VERBOSE
+      - name: REPORT_CASE_TAG
+      from: src
+      resources:
+        requests:
+          cpu: 100m
+          memory: 1Gi
     workflow: ipi-aws
 - as: e2e-nmo-weekly-aws
   capabilities:
