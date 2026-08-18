@@ -144,7 +144,7 @@ tests:
         and configmaps into the build pod
     workflow: openshift-e2e-ibmcloud-heterogeneous
 - as: ocp-e2e-powervs-ovn-multi-p-px
-  cron: 0 6 1-31/2 * *
+  cron: 0 6 * * 1-5
   steps:
     cluster_profile: powervs-multi-1
     env:
@@ -428,7 +428,7 @@ tests:
       OCP_ARCH: arm64
       TEST_TYPE: upgrade-conformance
     workflow: openshift-upgrade-azure
-- as: ocp-e2e-ovn-techpreview-remote-libvirt-multi-z-z
+- as: ocp-fips-ovn-techpreview-remote-libvirt-multi-z-z
   capabilities:
   - intranet
   cron: 0 14 * * 1-4
@@ -439,9 +439,10 @@ tests:
       BRANCH: "5.0"
       ETCD_DISK_SPEED: slow
       FEATURE_SET: TechPreviewNoUpgrade
+      FIPS_ENABLED: "true"
       TEST_TYPE: conformance-parallel
       USE_EXTERNAL_DNS: "true"
-    workflow: openshift-e2e-libvirt-vpn
+    workflow: openshift-e2e-libvirt-vpn-fips
 - as: ocp-e2e-ovn-remote-libvirt-s390x
   capabilities:
   - intranet
@@ -674,11 +675,20 @@ tests:
       TEST_TYPE: conformance-parallel
       USE_EXTERNAL_DNS: "true"
     workflow: openshift-e2e-libvirt-upi
+- as: ocp-powervc-checks
+  capabilities:
+  - intranet
+  - power-s2s-dns
+  cron: 0 12 * * *
+  restrict_network_access: false
+  steps:
+    cluster_profile: powervc-1
+    workflow: openshift-powervc-checks
 - as: ocp-e2e-ovn-powervc-multi-p-p
   capabilities:
   - intranet
   - power-s2s-dns
-  cron: 0 0 1 1 *
+  cron: 0 12 * * *
   restrict_network_access: false
   steps:
     cluster_profile: powervc-1
@@ -691,7 +701,7 @@ tests:
 - as: ocp-e2e-ovn-powervs-capi-multi-p-p
   capabilities:
   - sshd-bastion
-  cron: 0 0 1 1 *
+  cron: 0 9,21 * * *
   steps:
     cluster_profile: powervs-7
     env:

@@ -19,9 +19,24 @@ spec:
     spec:
       serviceAccountName: "horologium"
       terminationGracePeriodSeconds: 30
+      initContainers:
+      - name: git-sync-init
+        command:
+        - /git-sync
+        args:
+        - --repo=https://github.com/Prucek/release-staging.git
+        - --ref=main
+        - --root=/etc/jobs/git-synced
+        - --one-time=true
+        - --depth=1
+        - --link=release-staging
+        image: quay-proxy.ci.openshift.org/openshift/ci:ci_git-sync_v4.3.0
+        volumeMounts:
+        - name: job-configs
+          mountPath: /etc/jobs
       containers:
       - name: horologium
-        image: quay.io/prucek/prow:horologium_db
+        image: us-docker.pkg.dev/k8s-infra-prow/images/horologium:v20260729-7f8580d8d
         args:
         - --dry-run=false
         - --config-path=/etc/config/config.yaml
@@ -32,7 +47,24 @@ spec:
           readOnly: true
         - name: job-configs
           mountPath: /etc/jobs
-          readOnly: true
+      - name: git-sync
+        command:
+        - /git-sync
+        args:
+        - --repo=https://github.com/Prucek/release-staging.git
+        - --ref=main
+        - --period=30s
+        - --root=/etc/jobs/git-synced
+        - --max-failures=3
+        - --link=release-staging
+        image: quay-proxy.ci.openshift.org/openshift/ci:ci_git-sync_v4.3.0
+        volumeMounts:
+        - name: job-configs
+          mountPath: /etc/jobs
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "0.5"
       volumes:
       - name: config
         configMap:

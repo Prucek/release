@@ -1,11 +1,11 @@
 presubmits:
   openshift/azure-file-csi-driver:
   - agent: kubernetes
-    always_run: true
+    always_run: false
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/e2e-azure-file-csi
     decorate: true
     decoration_config:
@@ -83,13 +83,13 @@ presubmits:
       - name: result-aggregator
         secret:
           secretName: result-aggregator
-    trigger: (?m)^/test( | .* )e2e-azure-file-csi,?($|\s.*)
+    trigger: (?m)^/test( | .* )(e2e-azure-file-csi|remaining-required),?($|\s.*)
   - agent: kubernetes
     always_run: false
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/e2e-azure-file-csi-extended
     decorate: true
     decoration_config:
@@ -170,11 +170,11 @@ presubmits:
           secretName: result-aggregator
     trigger: (?m)^/test( | .* )e2e-azure-file-csi-extended,?($|\s.*)
   - agent: kubernetes
-    always_run: true
+    always_run: false
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/e2e-azure-file-nfs-csi
     decorate: true
     decoration_config:
@@ -252,13 +252,13 @@ presubmits:
       - name: result-aggregator
         secret:
           secretName: result-aggregator
-    trigger: (?m)^/test( | .* )e2e-azure-file-nfs-csi,?($|\s.*)
+    trigger: (?m)^/test( | .* )(e2e-azure-file-nfs-csi|remaining-required),?($|\s.*)
   - agent: kubernetes
     always_run: false
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/e2e-azure-manual-oidc
     decorate: true
     decoration_config:
@@ -339,11 +339,11 @@ presubmits:
           secretName: result-aggregator
     trigger: (?m)^/test( | .* )e2e-azure-manual-oidc,?($|\s.*)
   - agent: kubernetes
-    always_run: true
+    always_run: false
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/e2e-azure-ovn-upgrade
     decorate: true
     decoration_config:
@@ -421,13 +421,13 @@ presubmits:
       - name: result-aggregator
         secret:
           secretName: result-aggregator
-    trigger: (?m)^/test( | .* )e2e-azure-ovn-upgrade,?($|\s.*)
+    trigger: (?m)^/test( | .* )(e2e-azure-ovn-upgrade|remaining-required),?($|\s.*)
   - agent: kubernetes
     always_run: true
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/images
     decorate: true
     decoration_config:
@@ -485,7 +485,7 @@ presubmits:
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/security
     decorate: true
     decoration_config:
@@ -568,7 +568,7 @@ presubmits:
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/unit
     decorate: true
     decoration_config:
@@ -650,7 +650,7 @@ presubmits:
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/verify-commits
     decorate: true
     decoration_config:
@@ -715,7 +715,7 @@ presubmits:
     branches:
     - ^release-4\.16$
     - ^release-4\.16-
-    cluster: build08
+    cluster: build12
     context: ci/prow/verify-deps
     decorate: true
     decoration_config:

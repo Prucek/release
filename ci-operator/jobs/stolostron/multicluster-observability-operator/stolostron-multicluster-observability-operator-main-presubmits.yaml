@@ -10,12 +10,12 @@ presubmits:
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
@@ -89,12 +89,12 @@ presubmits:
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
@@ -150,12 +150,12 @@ presubmits:
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
@@ -225,16 +225,74 @@ presubmits:
     - ^main$
     - ^main-
     cluster: build08
+    context: ci/prow/opp-images
+    decorate: true
+    decoration_config:
+      sparse_checkout_files:
+      - Dockerfile.interop
+    labels:
+      ci-operator.openshift.io/variant: opp
+      ci.openshift.io/generator: prowgen
+      pj-rehearse.openshift.io/can-be-rehearsed: "true"
+    name: pull-ci-stolostron-multicluster-observability-operator-main-opp-images
+    rerun_command: /test opp-images
+    spec:
+      containers:
+      - args:
+        - --gcs-upload-secret=/secrets/gcs/service-account.json
+        - --image-import-pull-secret=/etc/pull-secret/.dockerconfigjson
+        - --report-credentials-file=/etc/report/credentials
+        - --target=[images]
+        - --variant=opp
+        command:
+        - ci-operator
+        image: quay-proxy.ci.openshift.org/openshift/ci:ci_ci-operator_latest
+        imagePullPolicy: Always
+        name: ""
+        resources:
+          requests:
+            cpu: 10m
+        volumeMounts:
+        - mountPath: /secrets/gcs
+          name: gcs-credentials
+          readOnly: true
+        - mountPath: /secrets/manifest-tool
+          name: manifest-tool-local-pusher
+          readOnly: true
+        - mountPath: /etc/pull-secret
+          name: pull-secret
+          readOnly: true
+        - mountPath: /etc/report
+          name: result-aggregator
+          readOnly: true
+      serviceAccountName: ci-operator
+      volumes:
+      - name: manifest-tool-local-pusher
+        secret:
+          secretName: manifest-tool-local-pusher
+      - name: pull-secret
+        secret:
+          secretName: registry-pull-credentials
+      - name: result-aggregator
+        secret:
+          secretName: result-aggregator
+    trigger: (?m)^/test( | .* )opp-images,?($|\s.*)
+  - agent: kubernetes
+    always_run: true
+    branches:
+    - ^main$
+    - ^main-
+    cluster: build08
     context: ci/prow/pr-image-mirror-endpoint-monitoring-operator
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
@@ -308,12 +366,12 @@ presubmits:
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
@@ -387,12 +445,12 @@ presubmits:
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
@@ -466,12 +524,12 @@ presubmits:
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
@@ -545,12 +603,12 @@ presubmits:
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
@@ -624,12 +682,12 @@ presubmits:
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
@@ -704,12 +762,12 @@ presubmits:
     decorate: true
     decoration_config:
       sparse_checkout_files:
-      - collectors/metrics/Dockerfile
-      - loaders/dashboards/Dockerfile
-      - operators/endpointmetrics/Dockerfile
-      - operators/multiclusterobservability/Dockerfile
-      - proxy/Dockerfile
-      - tests/Dockerfile
+      - collectors/metrics/Containerfile.operator
+      - loaders/dashboards/Containerfile.operator
+      - operators/endpointmetrics/Containerfile.operator
+      - operators/multiclusterobservability/Containerfile.operator
+      - proxy/Containerfile.operator
+      - tests/Containerfile.operator
     labels:
       ci.openshift.io/generator: prowgen
       pj-rehearse.openshift.io/can-be-rehearsed: "true"
