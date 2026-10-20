@@ -79,7 +79,7 @@ $(cat "${ISSUE_JSON}")
 ## Additional Instructions
 
 - Write the PR description to \`${WORKDIR}/artifacts/pr-description.md\`.
-- Do not use the \`gh\` CLI. The pipeline creates the PR after you exit. Push the feature branch with git and write the PR description file.
+- Do not use the \`gh\` CLI or push with git. Commit locally on a feature branch and write the PR description file. The pipeline publishes signed commits and creates the PR after you exit.
 - Do not modify CI configuration or generated files.
 - Save working files (e.g. solve plans) to \`/tmp/\` — do NOT create a \`.work/\` directory in the repo.
 
@@ -113,8 +113,9 @@ if [[ -f "${WORKDIR}/.agentic/solve-config.md" ]]; then
     cat "${WORKDIR}/.agentic/solve-config.md" >> "${SYSTEM_PROMPT}"
 fi
 
-# Block gh inside the Claude session. jira-solve --ci only needs git; the
-# pipeline opens the PR after Claude exits. --settings lives under /tmp so we
+# Block gh and git push inside the Claude session. The pipeline publishes
+# signed commits and opens the PR after Claude exits. --settings lives under /tmp
+# so we
 # do not write into a cloned repo that may ship its own .claude/settings.json.
 HOOKS_DIR="/tmp/ci-hooks"
 mkdir -p "${HOOKS_DIR}"
@@ -123,11 +124,11 @@ cat > "${HOOKS_DIR}/block-gh.sh" <<'HOOK_EOF'
 set -euo pipefail
 
 if ! command -v jq >/dev/null 2>&1; then
-    echo "block-gh hook requires jq" >&2
+    echo "CI command hook requires jq" >&2
     exit 2
 fi
 if ! command -v python3 >/dev/null 2>&1; then
-    echo "block-gh hook requires python3" >&2
+    echo "CI command hook requires python3" >&2
     exit 2
 fi
 
@@ -178,6 +179,8 @@ def deny_command(text):
         exe = tokens[0].rsplit("/", 1)[-1]
         if exe == "gh":
             return True
+        if exe == "git" and "push" in tokens[1:]:
+            return True
         if exe == "eval":
             return deny_command(" ".join(tokens[1:]))
         if exe in SHELLS and "-c" in tokens:
@@ -197,7 +200,7 @@ PY
 
 if [[ "${result}" == deny ]]; then
     jq -n '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny",
-      permissionDecisionReason: "CI mode: do not use the gh CLI. Push the branch with git; the pipeline creates the PR after you exit."}}' || exit 2
+      permissionDecisionReason: "CI mode: do not use gh or git push. Commit locally; the pipeline publishes signed commits and creates the PR."}}' || exit 2
 fi
 HOOK_EOF
 chmod +x "${HOOKS_DIR}/block-gh.sh"
@@ -215,6 +218,7 @@ cat > "${HOOKS_DIR}/settings.json" <<'HOOK_SETTINGS_EOF'
 HOOK_SETTINGS_EOF
 
 # --- Run Claude to solve the issue ---
+BASE_SHA=$(git rev-parse --verify 'HEAD^{commit}')
 PHASE_SETUP_DURATION=$(( $(date +%s) - PHASE_SETUP_START ))
 PHASE_SOLVE_START=$(date +%s)
 echo "Invoking Claude to solve ${JIRA_ISSUE_KEY}..."
@@ -224,7 +228,7 @@ agentic_ci --timeout 5400 \
     "Solve Jira issue ${JIRA_ISSUE_KEY}. Follow the Solve Process instructions in your system prompt.
 
 Create a feature branch — do NOT commit on the current branch.
-Do not use the gh CLI — the pipeline creates the PR after you exit. Push the branch with git and write the PR description to ${WORKDIR}/artifacts/pr-description.md." \
+Do not use the gh CLI or git push — the pipeline publishes your local commits and creates the PR after you exit. Write the PR description to ${WORKDIR}/artifacts/pr-description.md." \
     --settings "${HOOKS_DIR}/settings.json" \
     --output-format stream-json \
     --append-system-prompt-file "${SYSTEM_PROMPT}" \
@@ -233,7 +237,7 @@ Do not use the gh CLI — the pipeline creates the PR after you exit. Push the b
 if [[ "${CLAUDE_EXIT}" -eq 124 ]]; then
     echo "Claude timed out. Nudging to wrap up..."
     agentic_ci --timeout 600 \
-        "You hit the timeout. Please wrap up immediately: commit whatever you have, push to fork, and write the PR description to ${WORKDIR}/artifacts/pr-description.md. Do not use the gh CLI — the pipeline creates the PR after you exit." \
+        "You hit the timeout. Please wrap up immediately: commit whatever you have locally and write the PR description to ${WORKDIR}/artifacts/pr-description.md. Do not use the gh CLI or git push — the pipeline publishes signed commits and creates the PR after you exit." \
         --continue \
         --settings "${HOOKS_DIR}/settings.json" \
         --output-format stream-json \
@@ -241,8 +245,6 @@ if [[ "${CLAUDE_EXIT}" -eq 124 ]]; then
         || true
 fi
 PHASE_SOLVE_DURATION=$(( $(date +%s) - PHASE_SOLVE_START ))
-
-refresh_github_tokens || echo "WARNING: GitHub App token refresh failed; continuing with existing tokens"
 
 if [[ "${CLAUDE_EXIT}" -ne 0 ]]; then
     echo "ERROR: Claude exited with code ${CLAUDE_EXIT}."
@@ -275,6 +277,7 @@ if [[ "${CLAUDE_EXIT}" -ne 0 ]]; then
 fi
 
 # --- Create PR ---
+refresh_github_tokens || { echo "ERROR: Failed to refresh GitHub App tokens"; exit 1; }
 PHASE_PR_START=$(date +%s)
 BRANCH_NAME=$(git branch --show-current 2>/dev/null || echo "")
 if [[ -z "${BRANCH_NAME}" || "${BRANCH_NAME}" == "main" || "${BRANCH_NAME}" == "master" ]]; then
@@ -290,12 +293,32 @@ if [[ "${EVAL_MODE:-}" == "true" ]]; then
     EVAL_BRANCH="${BRANCH_NAME}-eval-$(date +%Y%m%d-%H%M%S)"
     echo "Eval mode: renaming branch ${BRANCH_NAME} -> ${EVAL_BRANCH}"
     git branch -m "${BRANCH_NAME}" "${EVAL_BRANCH}"
-    git push fork --delete "${BRANCH_NAME}" 2>/dev/null || true
-    git push fork "${EVAL_BRANCH}" || git push origin "${EVAL_BRANCH}"
     BRANCH_NAME="${EVAL_BRANCH}"
 fi
 
-echo "Branch pushed: ${BRANCH_NAME}"
+if ! git check-ref-format --branch "${BRANCH_NAME}" >/dev/null 2>&1; then
+    echo "ERROR: Invalid feature branch name"
+    exit 1
+fi
+if [[ "$(git rev-list --count "${BASE_SHA}..HEAD")" -eq 0 ]]; then
+    echo "ERROR: Claude did not create any commits"
+    exit 1
+fi
+if git ls-remote --exit-code --refs fork "refs/heads/${BRANCH_NAME}" >/dev/null 2>&1; then
+    echo "ERROR: Feature branch already exists on fork: ${BRANCH_NAME}"
+    exit 1
+fi
+echo "Creating feature branch on fork at ${BASE_SHA}..."
+git push fork "${BASE_SHA}:refs/heads/${BRANCH_NAME}"
+SIGNED_SHA=$(python3 "${SHARED_DIR}/publish-signed-commits.py" \
+    "${FORK_REPO}" "${BRANCH_NAME}" "${BASE_SHA}" "${SHARED_DIR}/gh-fork-token")
+git fetch --no-tags fork "refs/heads/${BRANCH_NAME}"
+if [[ "$(git rev-parse FETCH_HEAD)" != "${SIGNED_SHA}" ]]; then
+    echo "ERROR: Fork branch changed after publishing signed commits"
+    exit 1
+fi
+git reset --soft "${SIGNED_SHA}"
+echo "Verified commits published on branch: ${BRANCH_NAME} (${SIGNED_SHA})"
 echo "${BRANCH_NAME}" > "${SHARED_DIR}/claude-branch"
 
 PR_BODY_FILE="${WORKDIR}/artifacts/pr-description.md"

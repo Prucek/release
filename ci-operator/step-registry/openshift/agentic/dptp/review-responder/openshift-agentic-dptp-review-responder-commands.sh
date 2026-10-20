@@ -123,8 +123,8 @@ append_pipeline_constraints() {
 - Do not modify CI configuration or generated files.
 - Do NOT create new PRs.
 - Do not check out or pull the PR branch — you are already on it.
-- Do not git push. Commit locally only — the pipeline pushes after you finish.
-- Do not amend commits. Create new commits so the pipeline can fast-forward push.
+- Do not git push. Commit locally only — the pipeline publishes verified GitHub App commits after you finish.
+- Do not amend commits. Create new commits so the pipeline can replay them on the PR branch.
 EOF
 }
 
@@ -409,11 +409,12 @@ note_push_failure() {
 }
 
 push_current_branch() {
-    local history_rc
-    local push_log
-    local remote_head
+    local signed_sha fetched_sha
 
-    refresh_github_tokens || echo "WARNING: GitHub App token refresh failed; continuing with existing tokens"
+    refresh_github_tokens || {
+        note_push_failure
+        return 1
+    }
     PR_HEAD_OWNER="${EXPECTED_PR_HEAD_OWNER}"
     PR_HEAD_REPO="${EXPECTED_PR_HEAD_REPO}"
     PR_HEAD_BRANCH="${EXPECTED_PR_HEAD_BRANCH}"
@@ -422,61 +423,32 @@ push_current_branch() {
         return 1
     fi
 
-    echo "Pushing HEAD to fork ${EXPECTED_PR_HEAD_REF}..."
-    push_log=$(mktemp)
-    if LC_ALL=C git push --porcelain fork "HEAD:${EXPECTED_PR_HEAD_REF}" > "${push_log}" 2>&1; then
-        cat "${push_log}"
-        rm -f "${push_log}"
-        push_failures=0
-        return 0
-    fi
-    cat "${push_log}"
-    if ! grep -Eq '^!.*\[rejected\] \((non-fast-forward|fetch first)\)$' "${push_log}"; then
-        rm -f "${push_log}"
-        echo "ERROR: fork push failed without an unambiguous non-fast-forward rejection"
+    echo "Publishing verified commits to fork ${EXPECTED_PR_HEAD_REF}..."
+    if ! signed_sha=$(python3 "${SHARED_DIR}/publish-signed-commits.py" \
+        "${FORK_REPO}" "${EXPECTED_PR_HEAD_BRANCH}" "${EXPECTED_REMOTE_HEAD}" \
+        "${SHARED_DIR}/gh-fork-token"); then
         note_push_failure
         return 1
     fi
-    rm -f "${push_log}"
 
-    if git merge-base --is-ancestor "${EXPECTED_REMOTE_HEAD}" HEAD; then
-        echo "ERROR: refusing lease push because local history was not rewritten"
+    if ! git fetch --no-tags --no-recurse-submodules fork "${EXPECTED_PR_HEAD_REF}"; then
         note_push_failure
         return 1
-    else
-        history_rc=$?
-        if [[ "${history_rc}" -ne 1 ]]; then
-            echo "ERROR: unable to verify whether local history was rewritten"
+    fi
+    if ! fetched_sha=$(git rev-parse --verify 'FETCH_HEAD^{commit}') || \
+       [[ "${fetched_sha}" != "${signed_sha}" ]]; then
+        echo "ERROR: fork branch changed after publishing verified commits"
+        note_push_failure
+        return 1
+    fi
+    if [[ "${signed_sha}" != "${EXPECTED_REMOTE_HEAD}" ]]; then
+        git reset --soft "${signed_sha}" || {
             note_push_failure
             return 1
-        fi
+        }
     fi
-
-    if ! read_pr_head; then
-        note_push_failure
-        return 1
-    fi
-    remote_head="${PR_HEAD_SHA}"
-    if [[ "${PR_HEAD_OWNER}" != "${EXPECTED_PR_HEAD_OWNER}" ]] || \
-       [[ "${PR_HEAD_REPO}" != "${EXPECTED_PR_HEAD_REPO}" ]] || \
-       [[ "${PR_HEAD_BRANCH}" != "${EXPECTED_PR_HEAD_BRANCH}" ]] || \
-       [[ "${remote_head}" != "${EXPECTED_REMOTE_HEAD}" ]] || \
-       ! verify_push_target; then
-        echo "ERROR: PR head identity or SHA changed after worker execution"
-        note_push_failure
-        return 1
-    fi
-
-    echo "Rewritten history verified; pushing with a lease on ${EXPECTED_REMOTE_HEAD}..."
-    if git push --porcelain \
-        "--force-with-lease=${EXPECTED_PR_HEAD_REF}:${EXPECTED_REMOTE_HEAD}" \
-        fork "HEAD:${EXPECTED_PR_HEAD_REF}"; then
-        push_failures=0
-        return 0
-    fi
-    echo "ERROR: lease-protected fork push failed"
-    note_push_failure
-    return 1
+    push_failures=0
+    return 0
 }
 
 iteration=0
@@ -614,7 +586,7 @@ Your GitHub login is ${BOT_LOGIN}. When checking whether you have already acted 
             else
                 REVIEW_EXIT=$?
                 workers_succeeded=false
-                echo "Review worker failed; skipping branch push."
+                echo "Review worker failed; skipping signed commit publication."
             fi
         fi
 
@@ -640,14 +612,14 @@ Your GitHub login is ${BOT_LOGIN}." \
         fi
 
         if [[ "${workers_succeeded}" != "true" ]]; then
-            echo "WARNING: at least one worker failed; leaving the branch unpushed."
+            echo "WARNING: at least one worker failed; leaving the branch unpublished."
         elif push_current_branch; then
             if [[ "${ci_worker_succeeded}" == "true" ]] && \
                ! printf '%s\n' "${current_head}" > "${EVALUATED_CI_HEAD_FILE}"; then
                 echo "WARNING: failed to record evaluated CI HEAD; it may be re-evaluated."
             fi
         else
-            echo "WARNING: branch push failed; leaving this HEAD pending for retry."
+            echo "WARNING: signed commit publication failed; leaving this HEAD pending for retry."
             REVIEW_EXIT=1
         fi
     fi

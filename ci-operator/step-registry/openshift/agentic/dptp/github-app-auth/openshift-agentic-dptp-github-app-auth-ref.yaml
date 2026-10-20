@@ -25,3 +25,5 @@ ref:
     writing results to SHARED_DIR for downstream steps. Also writes
     github-app-auth.sh so long-running steps can mint fresh tokens
     (installation tokens expire after 1 hour and cannot be extended).
+    Writes publish-signed-commits.py to replay local commits through the
+    GitHub App's Git Database API and verify their signatures.
